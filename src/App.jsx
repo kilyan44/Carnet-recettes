@@ -1,4 +1,6 @@
 import { useState, useEffect, useRef } from "react";
+import { fetchRecipes, persistRecipes } from "./services/db";
+import { initialRecipes } from "./defaultRecipes";
 
 const STORAGE_KEY = "carnet-recettes-v1";
 
@@ -68,29 +70,23 @@ function ImagePlaceholder({ category }) {
 }
 
 export default function App() {
-  const [recipes, setRecipes] = useState(() => {
-    try {
-      const stored = localStorage.getItem(STORAGE_KEY);
-      return stored ? JSON.parse(stored) : defaultRecipes;
-    } catch { return defaultRecipes; }
-  });
-  const [view, setView] = useState("list");
-  const [activeCategory, setActiveCategory] = useState("all");
-  const [selected, setSelected] = useState(null);
-  const [servings, setServings] = useState(null);
-  const [form, setForm] = useState(null);
-  const [search, setSearch] = useState("");
-  const [toast, setToast] = useState(null);
-  const fileRef = useRef();
+  const [recipes, setRecipes] = useState(initialRecipes);
+  const [loading, setLoading] = useState(true);
 
+  // Chargement asynchrone depuis Upstash au montage
   useEffect(() => {
-    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(recipes)); } catch {}
-  }, [recipes]);
+    fetchRecipes().then((data) => {
+      setRecipes(data);
+      setLoading(false);
+    });
+  }, []);
 
-  function showToast(msg) {
-    setToast(msg);
-    setTimeout(() => setToast(null), 2500);
-  }
+  // Sauvegarde automatique (locale + Upstash) dès que recipes change
+  useEffect(() => {
+    if (!loading) {
+      persistRecipes(recipes);
+    }
+  }, [recipes, loading]);
 
   function openDetail(recipe) {
     setSelected(recipe);
