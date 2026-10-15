@@ -2,8 +2,6 @@ import { useState, useEffect, useRef } from "react";
 import { fetchRecipes, persistRecipes } from "./services/db";
 import { initialRecipes } from "./defaultRecipes";
 
-const STORAGE_KEY = "carnet-recettes-v1";
-
 export const CATEGORIES = [
   { id: "all",         label: "Tout",         emoji: "✨", color: "#2C2416", light: "#FAF7F2" },
   { id: "entree",      label: "Entrées",      emoji: "🥗", color: "#4A7C59", light: "#EAF4ED" },
@@ -13,42 +11,6 @@ export const CATEGORIES = [
   { id: "boisson",     label: "Boissons",     emoji: "🥤", color: "#2471A3", light: "#E8F4FD" },
   { id: "petit-dej",   label: "Petit-déj",    emoji: "🥐", color: "#C49A00", light: "#FDF6E3" },
   { id: "snack",       label: "Snacks",       emoji: "🥪", color: "#B7410E", light: "#FDEEE8" },
-];
-
-const defaultRecipes = [
-  {
-    id: "demo-1",
-    name: "Tarte aux pommes",
-    description: "Une tarte dorée aux pommes caramélisées, croustillante et fondante à la fois.",
-    image: null,
-    category: "dessert",
-    baseServings: 6,
-    ingredients: [
-      { name: "Pâte brisée", amount: 1, unit: "rouleau" },
-      { name: "Pommes", amount: 4, unit: "pièces" },
-      { name: "Sucre", amount: 80, unit: "g" },
-      { name: "Beurre", amount: 40, unit: "g" },
-      { name: "Cannelle", amount: 1, unit: "c.à.c" },
-    ],
-    steps: "Préchauffer le four à 180°C.\nÉtaler la pâte dans un moule beurré.\nÉplucher et couper les pommes en fines lamelles.\nDisposer les pommes sur la pâte en rosace, saupoudrer de sucre et de cannelle, puis ajouter le beurre en petits morceaux.\nEnfourner 35 minutes jusqu'à ce que la tarte soit bien dorée.",
-    createdAt: Date.now(),
-  },
-  {
-    id: "demo-2",
-    name: "Salade César",
-    description: "La classique salade César avec sa sauce crémeuse et ses croûtons dorés.",
-    image: null,
-    category: "entree",
-    baseServings: 2,
-    ingredients: [
-      { name: "Laitue romaine", amount: 1, unit: "pièce" },
-      { name: "Parmesan râpé", amount: 50, unit: "g" },
-      { name: "Croûtons", amount: 80, unit: "g" },
-      { name: "Sauce César", amount: 4, unit: "c.à.s" },
-    ],
-    steps: "Laver et essorer la laitue, couper en morceaux.\nPréparer les croûtons dorés à la poêle.\nMélanger la laitue avec la sauce César.\nAjouter les croûtons et le parmesan.\nServir immédiatement.",
-    createdAt: Date.now() - 1000,
-  },
 ];
 
 function scaleAmount(amount, base, target) {
@@ -72,8 +34,15 @@ function ImagePlaceholder({ category }) {
 export default function App() {
   const [recipes, setRecipes] = useState(initialRecipes);
   const [loading, setLoading] = useState(true);
+  const [view, setView] = useState("list");
+  const [activeCategory, setActiveCategory] = useState("all");
+  const [selected, setSelected] = useState(null);
+  const [servings, setServings] = useState(null);
+  const [form, setForm] = useState(null);
+  const [search, setSearch] = useState("");
+  const [toast, setToast] = useState(null);
+  const fileRef = useRef();
 
-  // Chargement asynchrone depuis Upstash au montage
   useEffect(() => {
     fetchRecipes().then((data) => {
       setRecipes(data);
@@ -81,12 +50,16 @@ export default function App() {
     });
   }, []);
 
-  // Sauvegarde automatique (locale + Upstash) dès que recipes change
   useEffect(() => {
     if (!loading) {
       persistRecipes(recipes);
     }
   }, [recipes, loading]);
+
+  function showToast(msg) {
+    setToast(msg);
+    setTimeout(() => setToast(null), 2500);
+  }
 
   function openDetail(recipe) {
     setSelected(recipe);
@@ -169,7 +142,7 @@ export default function App() {
   const filtered = recipes.filter(r => {
     const matchCat = activeCategory === "all" || r.category === activeCategory;
     const q = search.toLowerCase();
-    const matchSearch = r.name.toLowerCase().includes(q) || r.description.toLowerCase().includes(q);
+    const matchSearch = r.name.toLowerCase().includes(q) || (r.description && r.description.toLowerCase().includes(q));
     return matchCat && matchSearch;
   });
 
@@ -197,7 +170,6 @@ export default function App() {
     label: { display: "block", fontWeight: 700, marginBottom: "0.35rem", fontSize: "0.88rem", color: "#6B5744" },
   };
 
-  // ── LIST ──
   if (view === "list") return (
     <div style={S.app}>
       <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&display=swap" rel="stylesheet" />
@@ -206,12 +178,10 @@ export default function App() {
         <button style={S.btn("primary")} onClick={openAdd}>+ Ajouter</button>
       </div>
 
-      {/* Search */}
       <div style={{ padding: "1rem 1.2rem 0", maxWidth: 700, margin: "0 auto" }}>
         <input style={{ ...S.input, fontSize: "0.95rem" }} placeholder="🔍 Rechercher..." value={search} onChange={e => setSearch(e.target.value)} />
       </div>
 
-      {/* Category tabs */}
       <div style={{ overflowX: "auto", padding: "0.9rem 1rem 0", display: "flex", gap: "0.5rem", scrollbarWidth: "none" }}>
         {CATEGORIES.map(cat => {
           const count = cat.id === "all" ? recipes.length : recipes.filter(r => r.category === cat.id).length;
@@ -241,7 +211,6 @@ export default function App() {
         })}
       </div>
 
-      {/* Recipe list */}
       <div style={{ padding: "1rem 1.2rem", paddingBottom: "calc(1.2rem + env(safe-area-inset-bottom))", maxWidth: 700, margin: "0 auto" }}>
         {filtered.length === 0 && (
           <div style={{ textAlign: "center", padding: "3rem 1rem", color: "#9B8676" }}>
@@ -278,7 +247,6 @@ export default function App() {
     </div>
   );
 
-  // ── DETAIL ──
   if (view === "detail" && selected) {
     const cur = servings || selected.baseServings;
     const cat = getCat(selected.category);
@@ -305,7 +273,6 @@ export default function App() {
             <h1 style={{ margin: "0 0 0.4rem", fontSize: "1.8rem", fontWeight: 700, lineHeight: 1.2 }}>{selected.name}</h1>
             {selected.description && <p style={{ color: "#6B5744", margin: "0 0 1.5rem", lineHeight: 1.6, fontSize: "0.95rem" }}>{selected.description}</p>}
 
-            {/* Servings */}
             <div style={{ background: "#FFF", borderRadius: "1rem", padding: "1rem 1.2rem", marginBottom: "1.5rem", display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "0.5rem", boxShadow: "0 2px 10px rgba(44,36,22,0.07)" }}>
               <span style={{ fontWeight: 700, color: "#6B5744", fontSize: "0.9rem" }}>👥 Adapter pour</span>
               <div style={{ display: "flex", alignItems: "center", gap: "0.8rem" }}>
@@ -319,7 +286,6 @@ export default function App() {
               {cur !== selected.baseServings && <span style={{ fontSize: "0.78rem", color: cat.color, fontWeight: 600 }}>base : {selected.baseServings}</span>}
             </div>
 
-            {/* Ingredients */}
             <h2 style={{ fontSize: "1.1rem", fontWeight: 700, margin: "0 0 0.7rem" }}>🥕 Ingrédients</h2>
             <div style={{ background: "#FFF", borderRadius: "0.8rem", padding: "0.5rem 1rem", marginBottom: "1.5rem", boxShadow: "0 2px 10px rgba(44,36,22,0.07)" }}>
               {selected.ingredients.map((ing, i) => (
@@ -330,18 +296,19 @@ export default function App() {
               ))}
             </div>
 
-            {/* Steps */}
-            {selected.steps && <>
-              <h2 style={{ fontSize: "1.1rem", fontWeight: 700, margin: "0 0 0.7rem" }}>👨‍🍳 Préparation</h2>
-              <div style={{ display: "flex", flexDirection: "column", gap: "0.8rem" }}>
-                {selected.steps.split("\n").filter(Boolean).map((step, i) => (
-                  <div key={i} style={{ display: "flex", gap: "0.8rem", alignItems: "flex-start", background: "#FFF", borderRadius: "0.8rem", padding: "0.8rem 1rem", boxShadow: "0 1px 6px rgba(44,36,22,0.06)" }}>
-                    <span style={{ background: cat.color, color: "#FFF", borderRadius: "50%", minWidth: 26, height: 26, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, fontSize: "0.82rem", flexShrink: 0, marginTop: 1 }}>{i + 1}</span>
-                    <span style={{ lineHeight: 1.6, fontSize: "0.93rem" }}>{step}</span>
-                  </div>
-                ))}
-              </div>
-            </>}
+            {selected.steps && (
+              <>
+                <h2 style={{ fontSize: "1.1rem", fontWeight: 700, margin: "0 0 0.7rem" }}>👨‍🍳 Préparation</h2>
+                <div style={{ display: "flex", flexDirection: "column", gap: "0.8rem" }}>
+                  {selected.steps.split("\n").filter(Boolean).map((step, i) => (
+                    <div key={i} style={{ display: "flex", gap: "0.8rem", alignItems: "flex-start", background: "#FFF", borderRadius: "0.8rem", padding: "0.8rem 1rem", boxShadow: "0 1px 6px rgba(44,36,22,0.06)" }}>
+                      <span style={{ background: cat.color, color: "#FFF", borderRadius: "50%", minWidth: 26, height: 26, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, fontSize: "0.82rem", flexShrink: 0, marginTop: 1 }}>{i + 1}</span>
+                      <span style={{ lineHeight: 1.6, fontSize: "0.93rem" }}>{step}</span>
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
           </div>
         </div>
         {toast && <Toast msg={toast} />}
@@ -349,7 +316,6 @@ export default function App() {
     );
   }
 
-  // ── FORM ──
   if (view === "form" && form) {
     const isEdit = !!form.id;
     const cat = getCat(form.category);
@@ -363,106 +329,6 @@ export default function App() {
         </div>
         <div style={{ padding: "1.2rem", paddingBottom: "calc(2rem + env(safe-area-inset-bottom))", maxWidth: 700, margin: "0 auto" }}>
 
-          {/* Photo */}
           <div style={{ marginBottom: "1.2rem" }}>
             <label style={S.label}>📷 Photo</label>
-            <div style={{ height: 160, borderRadius: "0.8rem", overflow: "hidden", background: cat.light, cursor: "pointer", border: `2px dashed ${cat.color}`, display: "flex", alignItems: "center", justifyContent: "center" }}
-              onClick={() => fileRef.current.click()}>
-              {form.image
-                ? <img src={form.image} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-                : <div style={{ textAlign: "center", color: cat.color }}>
-                    <div style={{ fontSize: "2rem" }}>📷</div>
-                    <div style={{ fontSize: "0.85rem", marginTop: "0.3rem" }}>Appuyer pour ajouter</div>
-                  </div>}
-            </div>
-            <input ref={fileRef} type="file" accept="image/*" style={{ display: "none" }} onChange={handleImage} />
-            {form.image && <button style={{ ...S.btn("light"), marginTop: "0.5rem", fontSize: "0.8rem", padding: "0.3rem 0.8rem" }} onClick={() => setForm(f => ({ ...f, image: null }))}>Supprimer</button>}
-          </div>
-
-          {/* Catégorie */}
-          <div style={{ marginBottom: "1.2rem" }}>
-            <label style={S.label}>🏷️ Catégorie</label>
-            <div style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem" }}>
-              {CATEGORIES.filter(c => c.id !== "all").map(c => (
-                <button key={c.id} onClick={() => setForm(f => ({ ...f, category: c.id }))}
-                  style={{
-                    border: "none", cursor: "pointer", borderRadius: "2rem",
-                    padding: "0.45rem 0.9rem", fontFamily: "'Playfair Display', serif",
-                    fontWeight: form.category === c.id ? 700 : 500, fontSize: "0.85rem",
-                    background: form.category === c.id ? c.color : "#EDE8E0",
-                    color: form.category === c.id ? "#FFF" : "#6B5744",
-                    boxShadow: form.category === c.id ? `0 2px 8px ${c.color}55` : "none",
-                    transition: "all 0.15s",
-                  }}>
-                  {c.emoji} {c.label}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Nom */}
-          <div style={{ marginBottom: "1.2rem" }}>
-            <label style={S.label}>🍽️ Nom *</label>
-            <input style={{ ...S.input, borderColor: cat.color + "66" }} value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} placeholder="ex: Ratatouille" />
-          </div>
-
-          {/* Description */}
-          <div style={{ marginBottom: "1.2rem" }}>
-            <label style={S.label}>📝 Description</label>
-            <textarea style={{ ...S.input, minHeight: 72, resize: "vertical", borderColor: cat.color + "66" }} value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} placeholder="Décrivez votre recette..." />
-          </div>
-
-          {/* Personnes */}
-          <div style={{ marginBottom: "1.2rem" }}>
-            <label style={S.label}>👥 Nombre de personnes (base)</label>
-            <div style={{ display: "flex", alignItems: "center", gap: "0.8rem" }}>
-              <button onClick={() => setForm(f => ({ ...f, baseServings: Math.max(1, f.baseServings - 1) }))}
-                style={{ width: 38, height: 38, borderRadius: "50%", border: `2px solid ${cat.color}`, background: "#FFF", color: cat.color, fontWeight: 700, fontSize: "1.2rem", cursor: "pointer" }}>−</button>
-              <span style={{ fontSize: "1.4rem", fontWeight: 700, minWidth: 32, textAlign: "center" }}>{form.baseServings}</span>
-              <button onClick={() => setForm(f => ({ ...f, baseServings: f.baseServings + 1 }))}
-                style={{ width: 38, height: 38, borderRadius: "50%", border: `2px solid ${cat.color}`, background: cat.color, color: "#FFF", fontWeight: 700, fontSize: "1.2rem", cursor: "pointer" }}>+</button>
-              <span style={{ color: "#6B5744", fontSize: "0.9rem" }}>personne{form.baseServings > 1 ? "s" : ""}</span>
-            </div>
-          </div>
-
-          {/* Ingrédients */}
-          <div style={{ marginBottom: "1.2rem" }}>
-            <label style={S.label}>🥕 Ingrédients</label>
-            {form.ingredients.map((ing, i) => (
-              <div key={i} style={{ display: "flex", gap: "0.4rem", marginBottom: "0.45rem", alignItems: "center" }}>
-                <input style={{ ...S.input, flex: 3 }} placeholder="Ingrédient" value={ing.name} onChange={e => updateIngredient(i, "name", e.target.value)} />
-                <input style={{ ...S.input, flex: 1.2, minWidth: 0 }} placeholder="Qté" type="number" min="0" step="any" value={ing.amount} onChange={e => updateIngredient(i, "amount", e.target.value)} />
-                <input style={{ ...S.input, flex: 1.5, minWidth: 0 }} placeholder="Unité" value={ing.unit} onChange={e => updateIngredient(i, "unit", e.target.value)} />
-                {form.ingredients.length > 1 && (
-                  <button onClick={() => removeIngredient(i)} style={{ background: "none", border: "none", cursor: "pointer", color: "#C0392B", fontSize: "1.3rem", padding: "0 0.2rem", flexShrink: 0 }}>✕</button>
-                )}
-              </div>
-            ))}
-            <button style={{ ...S.btn("light"), fontSize: "0.85rem" }} onClick={addIngredient}>+ Ajouter un ingrédient</button>
-          </div>
-
-          {/* Étapes */}
-          <div style={{ marginBottom: "1rem" }}>
-            <label style={S.label}>👨‍🍳 Étapes (une par ligne)</label>
-            <textarea style={{ ...S.input, minHeight: 150, resize: "vertical", lineHeight: 1.7, borderColor: cat.color + "66" }}
-              value={form.steps} onChange={e => setForm(f => ({ ...f, steps: e.target.value }))}
-              placeholder={"Préchauffer le four à 180°C.\nPréparer les légumes.\nCuire 30 minutes."} />
-          </div>
-        </div>
-        {toast && <Toast msg={toast} />}
-      </div>
-    );
-  }
-
-  return null;
-}
-
-function Toast({ msg }) {
-  return (
-    <div style={{
-      position: "fixed", bottom: "calc(1.5rem + env(safe-area-inset-bottom))", left: "50%", transform: "translateX(-50%)",
-      background: "#2C2416", color: "#FAF7F2", padding: "0.75rem 1.5rem", borderRadius: "2rem",
-      fontWeight: 600, fontSize: "0.9rem", boxShadow: "0 4px 20px rgba(0,0,0,0.25)", zIndex: 999, whiteSpace: "nowrap",
-    }}>{msg}</div>
-  );
-}
+            <div style={{ height: 160, borderRadius: "0.8rem", overflow: "hidden", background: cat.light, cursor
