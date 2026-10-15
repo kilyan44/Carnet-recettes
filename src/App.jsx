@@ -331,4 +331,111 @@ export default function App() {
 
           <div style={{ marginBottom: "1.2rem" }}>
             <label style={S.label}>📷 Photo</label>
-            <div style={{ height: 160, borderRadius: "0.8rem", overflow: "hidden", background: cat.light, cursor
+            <div style={{ height: 160, borderRadius: "0.8rem", overflow: "hidden", background: cat.light, cursor: "pointer", border: `2px dashed ${cat.color}`, display: "flex", alignItems: "center", justifyContent: "center" }}
+              onClick={() => fileRef.current.click()}>
+              {form.image
+                ? <img src={form.image} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                : <div style={{ textAlign: "center", color: cat.color }}>
+                    <div style={{ fontSize: "2rem" }}>📷</div>
+                    <div style={{ fontSize: "0.85rem", marginTop: "0.3rem" }}>Appuyer pour ajouter</div>
+                  </div>}
+            </div>
+            <input ref={fileRef} type="file" accept="image/*" style={{ display: "none" }} onChange={handleImage} />
+            {form.image && <button style={{ ...S.btn("light"), marginTop: "0.5rem", fontSize: "0.8rem", padding: "0.3rem 0.8rem" }} onClick={() => setForm(f => ({ ...f, image: null }))}>Supprimer</button>}
+          </div>
+
+          <div style={{ marginBottom: "1.2rem" }}>
+            <label style={S.label}>🏷️ Catégorie</label>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem" }}>
+              {CATEGORIES.filter(c => c.id !== "all").map(c => (
+                <button key={c.id} onClick={() => setForm(f => ({ ...f, category: c.id }))}
+                  style={{
+                    border: "none",
+                    cursor: "pointer",
+                    borderRadius: "2rem",
+                    padding: "0.45rem 0.9rem",
+                    fontFamily: "'Playfair Display', serif",
+                    fontWeight: form.category === c.id ? 700 : 500,
+                    fontSize: "0.85rem",
+                    background: form.category === c.id ? c.color : "#EDE8E0",
+                    color: form.category === c.id ? "#FFF" : "#6B5744",
+                    boxShadow: form.category === c.id ? `0 2px 8px ${c.color}55` : "none",
+                    transition: "all 0.15s",
+                  }}>
+                  {c.emoji} {c.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div style={{ marginBottom: "1.2rem" }}>
+            <label style={S.label}>🍽️ Nom *</label>
+            <input style={{ ...S.input, borderColor: cat.color + "66" }} value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} placeholder="ex: Ratatouille" />
+          </div>
+
+          <div style={{ marginBottom: "1.2rem" }}>
+            <label style={S.label}>📝 Description</label>
+            <textarea style={{ ...S.input, minHeight: 72, resize: "vertical", borderColor: cat.color + "66" }} value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} placeholder="Décrivez votre recette..." />
+          </div>
+
+          <div style={{ marginBottom: "1.2rem" }}>
+            <label style={S.label}>👥 Nombre de personnes (base)</label>
+            <div style={{ display: "flex", alignItems: "center", gap: "0.8rem" }}>
+              <button onClick={() => setForm(f => ({ ...f, baseServings: Math.max(1, f.baseServings - 1) }))}
+                style={{ width: 38, height: 38, borderRadius: "50%", border: `2px solid ${cat.color}`, background: "#FFF", color: cat.color, fontWeight: 700, fontSize: "1.2rem", cursor: "pointer" }}>−</button>
+              <span style={{ fontSize: "1.4rem", fontWeight: 700, minWidth: 32, textAlign: "center" }}>{form.baseServings}</span>
+              <button onClick={() => setForm(f => ({ ...f, baseServings: f.baseServings + 1 }))}
+                style={{ width: 38, height: 38, borderRadius: "50%", border: `2px solid ${cat.color}`, background: cat.color, color: "#FFF", fontWeight: 700, fontSize: "1.2rem", cursor: "pointer" }}>+</button>
+              <span style={{ color: "#6B5744", fontSize: "0.9rem" }}>personne{form.baseServings > 1 ? "s" : ""}</span>
+            </div>
+          </div>
+
+          <div style={{ marginBottom: "1.2rem" }}>
+            <label style={S.label}>🥕 Ingrédients</label>
+            {form.ingredients.map((ing, i) => (
+              <div key={i} style={{ display: "flex", gap: "0.4rem", marginBottom: "0.45rem", alignItems: "center" }}>
+                <input style={{ ...S.input, flex: 3 }} placeholder="Ingrédient" value={ing.name} onChange={e => updateIngredient(i, "name", e.target.value)} />
+                <input style={{ ...S.input, flex: 1.2, minWidth: 0 }} placeholder="Qté" type="number" min="0" step="any" value={ing.amount} onChange={e => updateIngredient(i, "amount", e.target.value)} />
+                <input style={{ ...S.input, flex: 1.5, minWidth: 0 }} placeholder="Unité" value={ing.unit} onChange={e => updateIngredient(i, "unit", e.target.value)} />
+                {form.ingredients.length > 1 && (
+                  <button onClick={() => removeIngredient(i)} style={{ background: "none", border: "none", cursor: "pointer", color: "#C0392B", fontSize: "1.3rem", padding: "0 0.2rem", flexShrink: 0 }}>✕</button>
+                )}
+              </div>
+            ))}
+            <button style={{ ...S.btn("light"), fontSize: "0.85rem" }} onClick={addIngredient}>+ Ajouter un ingrédient</button>
+          </div>
+
+          <div style={{ marginBottom: "1rem" }}>
+            <label style={S.label}>👨‍🍳 Étapes (une par ligne)</label>
+            <textarea style={{ ...S.input, minHeight: 150, resize: "vertical", lineHeight: 1.7, borderColor: cat.color + "66" }}
+              value={form.steps} onChange={e => setForm(f => ({ ...f, steps: e.target.value }))}
+              placeholder={"Préchauffer le four à 180°C.\nPréparer les légumes.\nCuire 30 minutes."} />
+          </div>
+        </div>
+        {toast && <Toast msg={toast} />}
+      </div>
+    );
+  }
+
+  return null;
+}
+
+function Toast({ msg }) {
+  return (
+    <div style={{
+      position: "fixed",
+      bottom: "calc(1.5rem + env(safe-area-inset-bottom))",
+      left: "50%",
+      transform: "translateX(-50%)",
+      background: "#2C2416",
+      color: "#FAF7F2",
+      padding: "0.75rem 1.5rem",
+      borderRadius: "2rem",
+      fontWeight: 600,
+      fontSize: "0.9rem",
+      boxShadow: "0 4px 20px rgba(0,0,0,0.25)",
+      zIndex: 999,
+      whiteSpace: "nowrap",
+    }}>{msg}</div>
+  );
+}
